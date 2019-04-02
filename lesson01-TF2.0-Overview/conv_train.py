@@ -1,15 +1,12 @@
-import  os
-import  time
-import  numpy as np
-import  tensorflow as tf
-from    tensorflow.python.ops import summary_ops_v2
+import os
+import time
 
-from    tensorflow import keras
-from    tensorflow.keras import datasets, layers, models, optimizers, metrics
-
-
-
-
+import numpy as np
+import tensorflow as tf
+from tensorflow import keras
+from tensorboard import SummaryWriter
+from tensorflow.keras import datasets, layers, optimizers, metrics
+from tensorflow.python.ops import summary_ops_v2
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # or any {'0', '1', '2'}
 
@@ -75,13 +72,14 @@ def train(model, optimizer, dataset, log_freq=50):
         avg_loss(loss)
 
         if tf.equal(optimizer.iterations % log_freq, 0):
-            # summary_ops_v2.scalar('loss', avg_loss.result(), step=optimizer.iterations)
-            # summary_ops_v2.scalar('accuracy', compute_accuracy.result(), step=optimizer.iterations)
+            summary_ops_v2.scalar('loss', avg_loss.result(), step=optimizer.iterations)
+            summary_ops_v2.scalar('accuracy', compute_accuracy.result(), step=optimizer.iterations)
             print('step:', int(optimizer.iterations),
                   'loss:', avg_loss.result().numpy(),
                   'acc:', compute_accuracy.result().numpy())
             avg_loss.reset_states()
             compute_accuracy.reset_states()
+
 
 def test(model, dataset, step_num):
     """
@@ -98,8 +96,8 @@ def test(model, dataset, step_num):
         avg_loss.result(), compute_accuracy.result() * 100))
 
     print('loss:', avg_loss.result(), 'acc:', compute_accuracy.result())
-    # summary_ops_v2.scalar('loss', avg_loss.result(), step=step_num)
-    # summary_ops_v2.scalar('accuracy', compute_accuracy.result(), step=step_num)
+    summary_ops_v2.scalar('loss', avg_loss.result(), step=step_num)
+    summary_ops_v2.scalar('accuracy', compute_accuracy.result(), step=step_num)
 
 
 # Where to save checkpoints, tensorboard summaries, etc.
@@ -126,17 +124,18 @@ NUM_TRAIN_EPOCHS = 5
 
 for i in range(NUM_TRAIN_EPOCHS):
     start = time.time()
-    #   with train_summary_writer.as_default():
-    train(model, optimizer, train_ds, log_freq=500)
+    with train_summary_writer.as_default():
+        train(model, optimizer, train_ds, log_freq=500)
     end = time.time()
     print('Train time for epoch #{} ({} total steps): {}'.format(
         i + 1, int(optimizer.iterations), end - start))
-    #   with test_summary_writer.as_default():
-    #     test(model, test_ds, optimizer.iterations)
+    with test_summary_writer.as_default():
+        test(model, test_ds, optimizer.iterations)
     checkpoint.save(checkpoint_prefix)
     print('saved checkpoint.')
 
 export_path = os.path.join(MODEL_DIR, 'export')
 tf.saved_model.save(model, export_path)
 print('saved SavedModel for exporting.')
+
 

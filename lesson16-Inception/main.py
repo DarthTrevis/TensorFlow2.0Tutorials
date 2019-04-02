@@ -1,7 +1,7 @@
-import  os
-import  tensorflow as tf
-import  numpy as np
-from    tensorflow import keras
+import os
+import tensorflow as tf
+import numpy as np
+from tensorflow import keras
 
 
 # In[16]:
@@ -44,19 +44,12 @@ class ConvBNRelu(keras.Model):
             keras.layers.BatchNormalization(),
             keras.layers.ReLU()
         ])
-        
-        
+
     def call(self, x, training=None):
         
         x = self.model(x, training=training)
         
         return x 
-    
-        
-        
-
-
-# In[27]:
 
 
 class InceptionBlk(keras.Model):
@@ -74,11 +67,9 @@ class InceptionBlk(keras.Model):
         
         self.pool = keras.layers.MaxPooling2D(3, strides=1, padding='same')
         self.pool_conv = ConvBNRelu(ch, strides=strides)
-        
-        
+
     def call(self, x, training=None):
-        
-        
+
         x1 = self.conv1(x, training=training)
 
         x2 = self.conv2(x, training=training)
@@ -93,9 +84,6 @@ class InceptionBlk(keras.Model):
         x = tf.concat([x1, x2, x3_2, x4], axis=3)
         
         return x
-
-
-# In[28]:
 
 
 class Inception(keras.Model):
@@ -131,7 +119,6 @@ class Inception(keras.Model):
         self.avg_pool = keras.layers.GlobalAveragePooling2D()
         self.fc = keras.layers.Dense(num_classes)
         
-        
     def call(self, x, training=None):
         
         out = self.conv1(x, training=training)
@@ -142,12 +129,9 @@ class Inception(keras.Model):
         out = self.fc(out)
         
         return out    
-            
-        
 
 
 # In[29]:
-
 
 # build model and optimizer
 batch_size = 32
@@ -179,7 +163,6 @@ for epoch in range(100):
 
         if step % 10 == 0:
             print(epoch, step, 'loss:', loss.numpy())
-
 
     acc_meter.reset_states()
     for x, y in db_test:
