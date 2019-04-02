@@ -3,29 +3,9 @@ import time
 
 import numpy as np
 import tensorflow as tf
-from tensorflow import keras
-from tensorboard import SummaryWriter
+
 from tensorflow.keras import datasets, layers, optimizers, metrics
 from tensorflow.python.ops import summary_ops_v2
-
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # or any {'0', '1', '2'}
-
-model = tf.keras.Sequential([
-    layers.Reshape(
-        target_shape=[28, 28, 1],
-        input_shape=(28, 28,)),
-    layers.Conv2D(2, 5, padding='same', activation=tf.nn.relu),
-    layers.MaxPooling2D((2, 2), (2, 2), padding='same'),
-    layers.Conv2D(4, 5, padding='same', activation=tf.nn.relu),
-    layers.MaxPooling2D((2, 2), (2, 2), padding='same'),
-    layers.Flatten(),
-    layers.Dense(32, activation=tf.nn.relu),
-    layers.Dropout(rate=0.4),
-    layers.Dense(10)])
-
-compute_loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-compute_accuracy = tf.keras.metrics.SparseCategoricalAccuracy()
-optimizer = optimizers.SGD(learning_rate=0.01, momentum=0.5)
 
 
 def mnist_datasets():
@@ -38,9 +18,10 @@ def mnist_datasets():
     return train_dataset, test_dataset
 
 
-train_ds, test_ds = mnist_datasets()
-train_ds = train_ds.shuffle(60000).batch(100)
-test_ds = test_ds.batch(100)
+def apply_clean():
+    if tf.io.gfile.exists(MODEL_DIR):
+        print('Removing existing model dir: {}'.format(MODEL_DIR))
+        tf.io.gfile.rmtree(MODEL_DIR)
 
 
 def train_step(model, optimizer, images, labels):
@@ -100,42 +81,58 @@ def test(model, dataset, step_num):
     summary_ops_v2.scalar('accuracy', compute_accuracy.result(), step=step_num)
 
 
-# Where to save checkpoints, tensorboard summaries, etc.
-MODEL_DIR = '/tmp/tensorflow/mnist'
+if __name__ == "__main__":
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # or any {'0', '1', '2'}
 
+    the_model = tf.keras.Sequential([
+        layers.Reshape(
+            target_shape=[28, 28, 1],
+            input_shape=(28, 28,)),
+        layers.Conv2D(2, 5, padding='same', activation=tf.nn.relu),
+        layers.MaxPooling2D((2, 2), (2, 2), padding='same'),
+        layers.Conv2D(4, 5, padding='same', activation=tf.nn.relu),
+        layers.MaxPooling2D((2, 2), (2, 2), padding='same'),
+        layers.Flatten(),
+        layers.Dense(32, activation=tf.nn.relu),
+        layers.Dropout(rate=0.4),
+        layers.Dense(10)])
 
-def apply_clean():
-    if tf.io.gfile.exists(MODEL_DIR):
-        print('Removing existing model dir: {}'.format(MODEL_DIR))
-        tf.io.gfile.rmtree(MODEL_DIR)
+    compute_loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    compute_accuracy = tf.keras.metrics.SparseCategoricalAccuracy()
+    the_optimizer = optimizers.SGD(learning_rate=0.01, momentum=0.5)
 
+    train_ds, test_ds = mnist_datasets()
+    train_ds = train_ds.shuffle(60000).batch(100)
+    test_ds = test_ds.batch(100)
 
-apply_clean()
+    # Where to save checkpoints, tensorboard summaries, etc.
+    MODEL_DIR = '/tmp/tensorflow/mnist'
 
-checkpoint_dir = os.path.join(MODEL_DIR, 'checkpoints')
-checkpoint_prefix = os.path.join(checkpoint_dir, 'ckpt')
+    apply_clean()
 
-checkpoint = tf.train.Checkpoint(model=model, optimizer=optimizer)
+    checkpoint_dir = os.path.join(MODEL_DIR, 'checkpoints')
+    checkpoint_prefix = os.path.join(checkpoint_dir, 'ckpt')
 
-# Restore variables on creation if a checkpoint exists.
-checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
+    checkpoint = tf.train.Checkpoint(model=the_model, optimizer=the_optimizer)
 
-NUM_TRAIN_EPOCHS = 5
+    # Restore variables on creation if a checkpoint exists.
+    checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 
-for i in range(NUM_TRAIN_EPOCHS):
-    start = time.time()
-    with train_summary_writer.as_default():
-        train(model, optimizer, train_ds, log_freq=500)
-    end = time.time()
-    print('Train time for epoch #{} ({} total steps): {}'.format(
-        i + 1, int(optimizer.iterations), end - start))
-    with test_summary_writer.as_default():
-        test(model, test_ds, optimizer.iterations)
-    checkpoint.save(checkpoint_prefix)
-    print('saved checkpoint.')
+    NUM_TRAIN_EPOCHS = 5
 
-export_path = os.path.join(MODEL_DIR, 'export')
-tf.saved_model.save(model, export_path)
-print('saved SavedModel for exporting.')
+    for i in range(NUM_TRAIN_EPOCHS):
+        start = time.time()
+        # with train_summary_writer.as_default():
+        #     train(model, optimizer, train_ds, log_freq=500)
+        train(the_model, the_optimizer, train_ds, log_freq=500)
+        end = time.time()
+        print('Train time for epoch #{} ({} total steps): {}'.format(
+            i + 1, int(the_optimizer.iterations), end - start))
+        # with test_summary_writer.as_default():
+        #     test(model, test_ds, optimizer.iterations)
+        checkpoint.save(checkpoint_prefix)
+        print('saved checkpoint.')
 
-
+    export_path = os.path.join(MODEL_DIR, 'export')
+    tf.saved_model.save(the_model, export_path)
+    print('saved SavedModel for exporting.')
